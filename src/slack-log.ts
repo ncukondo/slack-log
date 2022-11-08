@@ -101,7 +101,7 @@ const processTasks = () => {
       }
       case "message": {
         const message = proccessMessage(task.data);
-        insertDict(getMemberSheet(), messageToRow(message), 2);
+        insertDict(getMessageSheet(), messageToRow(message), 2);
         // eslint-disable-next-line no-continue
         continue;
       }
