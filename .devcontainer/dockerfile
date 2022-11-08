@@ -5,7 +5,7 @@ RUN apk update && apk add make git gcc libc-dev
 RUN git clone --depth 1 --branch $GH_CLI_VERSION https://github.com/cli/cli.git /go/src/gh-cli
 RUN cd /go/src/gh-cli && make
 
-FROM node:15-alpine
+FROM node:16-alpine
 
 RUN apk update && apk add git openssh
 

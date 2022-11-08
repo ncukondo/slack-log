@@ -7,8 +7,8 @@
   "dockerFile": "dockerfile",
   "mounts": [
     "source=nodemodules,target=/workspaces/${localWorkspaceFolderBasename}/node_modules",
-    "source=config,target=/root",
-    "source=userHome,target=/home/node",
+    "source=${localWorkspaceFolderBasename}config,target=/root",
+    "source=${localWorkspaceFolderBasename}userHome,target=/home/node",
   ],
   "extensions": [
     "oderwat.indent-rainbow",

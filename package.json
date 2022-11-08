@@ -1,10 +1,10 @@
 {
-  "name": "@ncukondo/clasp-typescript",
+  "name": "@ncukondo/slack-log",
   "version": "1.0.0",
   "main": "./dist/index.js",
   "author": "Takeshi Kondo",
   "license": "MIT",
-  "homepage": "https://github.com/ncukondo/clasp-typescript",
+  "homepage": "https://github.com/ncukondo/slack-log",
   "scripts": {
     "lint:init": "npx eslint --init",
     "lint": "npx eslint --fix src/**/*.ts",
@@ -16,12 +16,10 @@
     "build": "yarn lint && rimraf dist && rollup -c && cpx src/appsscript.json dist && cpx js/* dist",
     "deploy": "yarn build && npx clasp push"
   },
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
+    "@google/clasp": "^2.4.2",
     "@jo12bar/rollup-plugin-hoist-entry-exports-to-global-scope": "^1.0.3",
-    "rollup": "^2.35.1",
-    "@google/clasp": "^2.3.0",
     "@rollup/plugin-babel": "^5.2.2",
     "@rollup/plugin-commonjs": "^17.0.0",
     "@rollup/plugin-node-resolve": "^11.0.1",
@@ -40,6 +38,7 @@
     "lodash.upperfirst": "^4.3.1",
     "prettier": "^2.0.5",
     "rimraf": "^3.0.2",
+    "rollup": "^2.35.1",
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.29.0",
     "ts-jest": "^26.2.0",

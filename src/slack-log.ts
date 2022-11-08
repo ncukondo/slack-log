@@ -1,152 +1,121 @@
-/** *****
-  slack-log
-  Event subscription
-    message.channels
-    team_join
-  OAuth permission
-    users:read
-    users:read.email
-    channels:history
-    channels:read
+import { addTask, iterTask, load as loadProperty } from "./libs/propertyUtils";
+import {
+  getAllMessages,
+  getMemberList,
+  getWebhookResponse,
+  initSlack,
+  proccessMember,
+  proccessMessage,
+  proccessWebhook,
+} from "./libs/slack";
+import type {
+  // eslint-disable-next-line no-unused-vars
+  MemberWithDetail,
+  // eslint-disable-next-line no-unused-vars
+  MessageWithDetail,
+  // eslint-disable-next-line no-unused-vars
+  WebhookAction,
+} from "./libs/slack";
+import {
+  columnValues,
+  getSheet,
+  insertDict,
+  insertDictList,
+} from "./libs/sheetUtils";
 
-  set scriptproprrties SHEET_ID, SLACK_ACCESS_TOKEN
-  Deploy as web app + time trigger to updateMessages & updateMembers
-***** */
-const SHEET_ID = PropertiesService.getScriptProperties().getProperty(
-  "SHEET_ID"
-);
+const SHEET_ID = loadProperty("SHEET_ID");
+const SLACK_ACCESS_TOKEN = loadProperty("SLACK_ACCESS_TOKEN");
+const TASK_KEY = "SLACK_TASK_KEY";
+const messageHeaders = [
+  "timestamp",
+  "id",
+  "email",
+  "channelName",
+  "text",
+  "raw",
+];
+const memberHeaders = ["updated", "id", "email", "name", "raw"];
 
-const getMessageSheet_ = () => {
-  const { getSheet } = import_sheetUtil_();
-  return getSheet(SHEET_ID, "slack", [
-    "timestamp",
-    "id",
-    "email",
-    "channel",
-    "data",
-  ]);
+initSlack(SLACK_ACCESS_TOKEN);
+
+const getMessageSheet = () => {
+  return getSheet(SHEET_ID, "slack", messageHeaders);
 };
 
-const getMemberSheet_ = () => {
-  const { getSheet } = import_sheetUtil_();
-  return getSheet(SHEET_ID, "slack-member", [
-    "updated",
-    "id",
-    "email",
-    "name",
-    "rawData",
-  ]);
+const getMemberSheet = () => {
+  return getSheet(SHEET_ID, "slack-member", memberHeaders);
 };
 
-const messageToRow_ = (message) => {
-  const { timestamp, id, email, channelName, text } = message;
-  return [timestamp, id, email, channelName, text];
+const messageToRow = (message: MessageWithDetail) => {
+  return Object.fromEntries(messageHeaders.map((key) => [key, message[key]]));
 };
 
-const memberToRow_ = (member) => {
-  const { updated, id, email, name, raw } = member;
-  return [updated, id, email, name, raw];
+const memberToRow = (member: MemberWithDetail) => {
+  return Object.fromEntries(memberHeaders.map((key) => [key, member[key]]));
 };
 
-const updateMessages = async () => {
-  const { insertRows } = import_sheetUtil_();
-  const { getUnrecordedMessages } = import_unrecordedList_();
+const updateMessages = () => {
+  const sheet = getMessageSheet();
+  const existingIDs = columnValues(sheet, "id");
+  const allMessages = getAllMessages();
+  const messages = allMessages
+    .filter(({ id }) => !existingIDs.includes(id))
+    .map(proccessMessage)
+    .map(messageToRow);
 
-  const data = getUnrecordedMessages().map(messageToRow_);
-  if (data.length > 0) {
-    const sheet = getMessageSheet_();
-    insertRows(sheet, data, 2);
-  }
-};
-
-const updateMessagesInChannel = (channel, exclude = "") => {
-  const { insertRows } = import_sheetUtil_();
-  const { getUnrecordedMessagesInChannel } = import_unrecordedList_();
-
-  const data = getUnrecordedMessagesInChannel(channel)
-    .filter(({ id }) => id !== exclude)
-    .map(messageToRow_);
-  if (data.length > 0) {
-    const sheet = getMessageSheet_();
-    insertRows(sheet, data, 2);
-  }
+  if (messages.length > 0) insertDictList(sheet, messages, 2);
 };
 
 const updateMembers = (exclude = "") => {
-  const { insertRows } = import_sheetUtil_();
-  const { getUnrecordedMembers } = import_unrecordedList_();
+  const sheet = getMemberSheet();
+  const existingIDs = columnValues(sheet, "id");
+  const members = getMemberList()
+    .filter(({ id }) => id !== exclude && !existingIDs.includes(id))
+    .map(proccessMember)
+    .map(memberToRow);
+  if (members.length > 0) insertDictList(sheet, members, 2);
+};
 
-  const data = getUnrecordedMembers()
-    .filter(({ id }) => id !== exclude)
-    .map(memberToRow_);
-  if (data.length > 0) {
-    const sheet = getMemberSheet_();
-    insertRows(sheet, data, 2);
+type PostEvent = {
+  postData: {
+    getDataAsString: () => string;
+  };
+};
+
+const doPost = (e: PostEvent) => {
+  const action = proccessWebhook(e);
+  if (action.action !== "none") addTask(TASK_KEY, action);
+  return getWebhookResponse(e);
+};
+
+const processTasks = () => {
+  const gen = iterTask<WebhookAction>(TASK_KEY);
+  // eslint-disable-next-line no-restricted-syntax
+  for (const task of gen) {
+    switch (task.action) {
+      case "member": {
+        const member = proccessMember(task.data);
+        insertDict(getMemberSheet(), memberToRow(member), 2);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      case "message": {
+        const message = proccessMessage(task.data);
+        insertDict(getMemberSheet(), messageToRow(message), 2);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      default:
+        // eslint-disable-next-line no-continue
+        continue;
+    }
   }
 };
 
-function doPost(e) {
-  const { proccessWebhook, getWebhookResponse } = import_slack_();
-  const { insertRow } = import_sheetUtil_();
-  proccessWebhook(e).then(({ action, data }) => {
-    if (action === "message") {
-      const sheet = getMessageSheet_();
-      const row = messageToRow_(data);
-      insertRow(sheet, row, 2);
-    }
-    if (action === "member") {
-      const sheet = getMemberSheet_();
-      const row = memberToRow_(data);
-      insertRow(sheet, row, 2);
-    }
-  });
-  return getWebhookResponse(e);
-}
+const updateAll = () => {
+  processTasks();
+  updateMembers();
+  updateMessages();
+};
 
-function import_unrecordedList_() {
-  const getRecordedMessageIds = () => {
-    const sheet = getMessageSheet_();
-    return sheet
-      .getDataRange()
-      .getValues()
-      .map((row) => row[1]);
-  };
-
-  const getRecordedMemberIds = () => {
-    const sheet = getMemberSheet_();
-    return sheet
-      .getDataRange()
-      .getValues()
-      .map((row) => row[1]);
-  };
-
-  const getUnrecordedMessages = () => {
-    const { getAllMessages, proccessMessage } = import_slack_();
-    const allMessages = getAllMessages();
-    const recorded = getRecordedMessageIds();
-    const notRecorded = (message) => !recorded.includes(message.id);
-    return allMessages.filter(notRecorded).map(proccessMessage);
-  };
-
-  const getUnrecordedMessagesInChannel = (channel) => {
-    const { getMessagesInChannel, proccessMessage } = import_slack_();
-    const allMessages = getMessagesInChannel(channel);
-    const recorded = getRecordedMessageIds();
-    const notRecorded = (message) => !recorded.includes(message.id);
-    return allMessages.filter(notRecorded).map(proccessMessage);
-  };
-
-  const getUnrecordedMembers = () => {
-    const { getMemberList, proccessMember } = import_slack_();
-    const allMembers = getMemberList();
-    const recorded = getRecordedMemberIds();
-    const notRecorded = (member) => !recorded.includes(member.id);
-    return allMembers.filter(notRecorded).map(proccessMember);
-  };
-
-  return {
-    getUnrecordedMessages,
-    getUnrecordedMembers,
-    getUnrecordedMessagesInChannel,
-  };
-}
+export { doPost, updateAll, processTasks };

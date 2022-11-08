@@ -1,4 +1,5 @@
 type Sheet = GoogleAppsScript.Spreadsheet.Sheet;
+type CellValue = string | boolean | Date | number;
 
 const toConcurrentsafe = <F extends (...args: unknown[]) => unknown>(fn: F) => (
   ...args: Parameters<F>
@@ -13,7 +14,7 @@ const toConcurrentsafe = <F extends (...args: unknown[]) => unknown>(fn: F) => (
 };
 
 const insertRow = toConcurrentsafe(
-  (sheet: Sheet, rowData: string[], index: number = 1) => {
+  (sheet: Sheet, rowData: CellValue[], index: number = 1) => {
     sheet
       .insertRowBefore(index)
       .getRange(index, 1, 1, rowData.length)
@@ -23,7 +24,7 @@ const insertRow = toConcurrentsafe(
 );
 
 const insertRows = toConcurrentsafe(
-  (sheet: Sheet, rowsData: string[][], index: number = 1) => {
+  (sheet: Sheet, rowsData: CellValue[][], index: number = 1) => {
     sheet
       .insertRowsBefore(index, rowsData.length)
       .getRange(index, 1, rowsData.length, rowsData[0].length)
@@ -34,7 +35,7 @@ const insertRows = toConcurrentsafe(
 
 const insertDict = (
   sheet: Sheet,
-  dict: Record<string, string>,
+  dict: Record<string, CellValue>,
   index: number = 1
 ) => {
   const [header] = sheet.getDataRange().getValues();
@@ -50,7 +51,7 @@ const insertDict = (
 
 const insertDictList = (
   sheet: Sheet,
-  dictList: Record<string, string>[],
+  dictList: Record<string, CellValue>[],
   index: number = 1
 ) => {
   const [header] = sheet.getDataRange().getValues();

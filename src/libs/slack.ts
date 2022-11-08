@@ -9,6 +9,11 @@ const makeCache = <T>() => {
   };
 };
 
+let SLACK_TOKEN: undefined | string;
+const initSlack = (token: string) => {
+  SLACK_TOKEN = token;
+};
+
 type Response<T> =
   | ({
       ok: true;
@@ -105,20 +110,19 @@ type Member = {
 };
 
 const doApi = <T>(entry: string, paramObj: Record<string, string> = {}) => {
-  const TOKEN = PropertiesService.getScriptProperties().getProperty(
-    "SLACK_ACCESS_TOKEN"
-  );
+  if (!SLACK_TOKEN) throw new Error("Call initSlack before call api.");
   // eslint-disable-next-line camelcase
   const options: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
     method: "get",
+    headers: { Authorization: `Bearer ${SLACK_TOKEN}` },
     contentType: "application/x-www-form-urlencoded",
   };
   const params = Object.entries(paramObj)
     .map(([key, value]) => `${key}=${value}`)
     .join("&");
-  const tail = params ? `&${params}` : "";
+  const tail = params ? `?${params}` : "";
   const response = UrlFetchApp.fetch(
-    encodeURI(`https://slack.com/api/${entry}?token=${TOKEN}&${tail}`),
+    encodeURI(`https://slack.com/api/${entry}${tail}`),
     options
   );
   const content = response.getContentText("UTF-8");
@@ -128,7 +132,10 @@ const doApi = <T>(entry: string, paramObj: Record<string, string> = {}) => {
 function* doPagedApi<T>(entry: string, paramObj: Record<string, string> = {}) {
   let cursor: any = null;
   do {
-    const nextData = doApi<T>(entry, { ...paramObj, cursor });
+    const nextData = doApi<T>(
+      entry,
+      cursor ? { ...paramObj, cursor } : paramObj
+    );
     if (nextData.ok === false) throw new Error(`Error: ${nextData.error}`);
     cursor = nextData?.response_metadata?.next_cursor;
     yield nextData;
@@ -141,12 +148,14 @@ const isNotJoinMessage = (msg: { text: string }) => {
 };
 
 const getChannelList = () => {
-  const gen = doPagedApi<{ channels: Conversation[] }>("conversations.list");
+  const gen = doPagedApi<{ channels: Conversation[] }>("conversations.list", {
+    types: "public_channel,private_channel",
+  });
   let channels = [] as Conversation[];
   // eslint-disable-next-line no-restricted-syntax
   for (const data of gen) {
     const chs = data.channels.filter(({ is_channel }) => is_channel);
-    console.log(`next${JSON.stringify(chs.length, null, 2)}`);
+    // console.log(`next${JSON.stringify(chs.length, null, 2)}`);
     channels = [...channels, ...chs];
   }
   return channels;
@@ -158,7 +167,7 @@ const getMemberList = () => {
   // eslint-disable-next-line no-restricted-syntax
   for (const data of gen) {
     const list = data.members.filter(({ is_bot }) => !is_bot);
-    console.log(`next${JSON.stringify(list.length, null, 2)}`);
+    // console.log(`next${JSON.stringify(list.length, null, 2)}`);
     members = [...members, ...list];
   }
   return members;
@@ -167,7 +176,7 @@ const getMemberList = () => {
 const getMessageId = (message: Message, channel: string) =>
   `${message.ts}-${channel}`;
 
-const getMessagesInChannel = (channel) => {
+const getMessagesInChannel = (channel: string) => {
   const gen = doPagedApi<{ messages: Message[] }>("conversations.history", {
     channel,
   });
@@ -223,7 +232,24 @@ const proccessMessage = (message: Message & { channel: string }) => {
     profile: { email },
   } = getUserInfo(userId);
   const { name: channelName } = getChannelInfo(channelId);
-  return { ...message, timestamp, email, channelName, id, text };
+  const raw = JSON.stringify(message);
+  return {
+    ...message,
+    timestamp,
+    email,
+    channelName,
+    id,
+    text,
+    raw,
+  } as MessageWithDetail;
+};
+
+type MessageWithDetail = Message & {
+  timestamp: Date;
+  email: string;
+  channelName: string;
+  id: string;
+  raw: string;
 };
 
 const proccessMember = (user: Member & { updated: string }) => {
@@ -231,7 +257,13 @@ const proccessMember = (user: Member & { updated: string }) => {
   const name = user.profile.real_name;
   const updated = new Date(parseFloat(user.updated) * 1000);
   const raw = JSON.stringify(user);
-  return { ...user, email, name, updated, raw };
+  return { ...user, email, name, updated, raw } as MemberWithDetail;
+};
+
+type MemberWithDetail = Member & {
+  email: string;
+  updated: Date;
+  raw: string;
 };
 
 type PostEvent = {
@@ -272,6 +304,7 @@ const getWebhookResponse = (postEvent) => {
 };
 
 export {
+  initSlack,
   getWebhookResponse,
   proccessWebhook,
   getUserByEmail,
@@ -283,4 +316,16 @@ export {
   getMemberList,
   proccessMember,
   proccessMessage,
+};
+export type {
+  // eslint-disable-next-line no-undef
+  Member,
+  // eslint-disable-next-line no-undef
+  Message,
+  // eslint-disable-next-line no-undef
+  MessageWithDetail,
+  // eslint-disable-next-line no-undef
+  MemberWithDetail,
+  // eslint-disable-next-line no-undef
+  WebhookAction,
 };
