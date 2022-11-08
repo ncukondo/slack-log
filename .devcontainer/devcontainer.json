@@ -1,0 +1,32 @@
+{
+  "name": "${localWorkspaceFolderBasename}",
+  "remoteEnv": {
+    "APP_NAME": "${localWorkspaceFolderBasename}"
+  },
+  "context": "..",
+  "dockerFile": "dockerfile",
+  "mounts": [
+    "source=nodemodules,target=/workspaces/${localWorkspaceFolderBasename}/node_modules",
+    "source=config,target=/root",
+    "source=userHome,target=/home/node",
+  ],
+  "extensions": [
+    "oderwat.indent-rainbow",
+    "ms-azuretools.vscode-docker",
+    "dbaeumer.vscode-eslint"
+  ],
+  // Specifies a command that should be run after the container has been created.
+  "postCreateCommand": "sudo chmod -R 777 . && yarn install",
+
+
+	// Comment out the next line to run as root instead.
+	"remoteUser": "node",
+  "settings": {
+    "terminal.integrated.profiles.linux": {
+      "bash": {
+        "path": "/bin/sh",
+      },
+    },
+    "terminal.integrated.defaultProfile.linux": "bash"
+  },
+}
