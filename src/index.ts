@@ -1,40 +1,15 @@
-/** *****
-  slack-log
-  Event subscription
-    message.channels
-    team_join
-  OAuth permission
-    users:read
-    users:read.email
-    channels:history
-    channels:read
-    usergroups:read
-    groups:history
-    groups:read
-    im:history
-    im:read
-    mipim:history
-    mpim:read
-
-  set scriptproprrties SHEET_ID, SLACK_ACCESS_TOKEN
-  Deploy as web app + time trigger to updateAll & processTasks
-***** */
-import {
-  doPost as postMethod,
-  updateAll as doUpdateAll,
-  processTasks as doProcessTasks,
-} from "./slack-log";
+import * as slackLog from "./slack-log";
 
 export function doPost(e) {
-  return postMethod(e);
+  return slackLog.doPost(e);
 }
 
 export function updateAll() {
-  doUpdateAll();
+  slackLog.updateAll();
 }
 
 export function processTasks() {
-  doProcessTasks();
+  slackLog.processTasks();
 }
 
 export function logger(text: string) {

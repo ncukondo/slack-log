@@ -46,17 +46,17 @@ const getMemberSheet = () => {
   return getSheet(SHEET_ID, "slack-member", memberHeaders);
 };
 
-const messageToRow = (message: MessageWithDetail) => {
-  return Object.fromEntries(
-    messageHeaders.map((key) => [key, message[key]])
-  ) as Pick<MessageWithDetail, typeof messageHeaders[number]>;
+const pick = <T, K extends keyof T>(source: T, keys: readonly K[]) => {
+  return Object.fromEntries(keys.map((key) => [key, source[key]])) as Pick<
+    T,
+    K
+  >;
 };
 
-const memberToRow = (member: MemberWithDetail) => {
-  return Object.fromEntries(
-    memberHeaders.map((key) => [key, member[key]])
-  ) as Pick<MemberWithDetail, typeof memberHeaders[number]>;
-};
+const messageToRow = (message: MessageWithDetail) =>
+  pick(message, messageHeaders);
+
+const memberToRow = (member: MemberWithDetail) => pick(member, memberHeaders);
 
 const updateMessages = () => {
   const sheet = getMessageSheet();
