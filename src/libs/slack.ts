@@ -59,6 +59,7 @@ type Message = {
   user: string;
   text: string;
   subtype?: string;
+  thead_ts?: string;
   attachments?: {
     service_name: string;
     text: string;
@@ -109,9 +110,61 @@ type Member = {
   has_2fa: boolean;
 };
 
+type MessageWithDetail = Message & {
+  timestamp: Date;
+  email: string;
+  channelName: string;
+  id: string;
+  raw: string;
+};
+
+type MemberWithDetail = Member & {
+  email: string;
+  updated: Date;
+  raw: string;
+};
+
+type PostEvent = {
+  postData: {
+    getDataAsString: () => string;
+  };
+};
+
+type WebhookAction =
+  | { action: "none" }
+  | { action: "message"; data: Message & { channel: string } }
+  | { action: "member"; data: Member & { updated: string } };
+
+const apiMap = {
+  "users.info": "user",
+  "conversations.info": "channel",
+  "users.lookupByEmail": "user",
+};
+type ApiEntries = keyof typeof apiMap;
+
+type ApiTypes = {
+  "users.info": Member;
+  "conversations.info": Conversation;
+  "users.lookupByEmail": Member;
+};
+
+const pagedApiMap = {
+  "conversations.list": "channels",
+  "users.list": "members",
+  "conversations.history": "messages",
+  "conversations.replies": "messages",
+};
+type PagedApiEntries = keyof typeof pagedApiMap;
+
+type PagedApiTypes = {
+  "conversations.list": Conversation;
+  "users.list": Member;
+  "conversations.history": Message;
+  "conversations.replies": Message;
+};
+
 const doApi = <T>(entry: string, paramObj: Record<string, string> = {}) => {
   if (!SLACK_TOKEN) throw new Error("Call initSlack before call api.");
-  // eslint-disable-next-line camelcase
   const options: GoogleAppsScript.URL_Fetch.URLFetchRequestOptions = {
     method: "get",
     headers: { Authorization: `Bearer ${SLACK_TOKEN}` },
@@ -129,70 +182,76 @@ const doApi = <T>(entry: string, paramObj: Record<string, string> = {}) => {
   return JSON.parse(content) as Response<T>;
 };
 
-function* doPagedApi<T>(entry: string, paramObj: Record<string, string> = {}) {
+const getInfo = <E extends ApiEntries>(
+  entry: E,
+  paramObj: Record<string, string> = {}
+) => {
+  const data = doApi<{ [P in typeof apiMap[typeof entry]]: ApiTypes[E] }>(
+    entry,
+    paramObj
+  );
+  if (data.ok === false) throw new Error(`Error: ${data.error}`);
+  return data[apiMap[entry]] as ApiTypes[E];
+};
+
+function* getPagedInfo<E extends PagedApiEntries>(
+  entry: E,
+  paramObj: Record<string, string> = {}
+) {
   let cursor: any = null;
   do {
-    const nextData = doApi<T>(
-      entry,
-      cursor ? { ...paramObj, cursor } : paramObj
-    );
+    const nextData = doApi<
+      { [P in typeof pagedApiMap[typeof entry]]: PagedApiTypes[E][] }
+    >(entry, cursor ? { ...paramObj, cursor } : paramObj);
     if (nextData.ok === false) throw new Error(`Error: ${nextData.error}`);
+    // eslint-disable-next-line no-restricted-syntax
+    for (const data of nextData[pagedApiMap[entry]]) {
+      yield data as PagedApiTypes[E];
+    }
     cursor = nextData?.response_metadata?.next_cursor;
-    yield nextData;
   } while (cursor);
 }
 
-const isNotJoinMessage = (msg: { text: string }) => {
+const isJoinMessage = (msg: { text: string }) => {
   const reg = /^<@[0-9a-zA-Z]+> has joined the channel$/i;
   return !reg.test(msg.text);
 };
 
 const getChannelList = () => {
-  const gen = doPagedApi<{ channels: Conversation[] }>("conversations.list", {
+  const option = {
     types: "public_channel,private_channel",
-  });
-  let channels = [] as Conversation[];
-  // eslint-disable-next-line no-restricted-syntax
-  for (const data of gen) {
-    const chs = data.channels.filter(({ is_channel }) => is_channel);
-    // console.log(`next${JSON.stringify(chs.length, null, 2)}`);
-    channels = [...channels, ...chs];
-  }
-  return channels;
+  };
+  return [...getPagedInfo("conversations.list", option)].filter(
+    ({ is_channel }) => is_channel
+  );
 };
 
 const getMemberList = () => {
-  const gen = doPagedApi<{ members: Member[] }>("users.list");
-  let members = [] as Member[];
-  // eslint-disable-next-line no-restricted-syntax
-  for (const data of gen) {
-    const list = data.members.filter(({ is_bot }) => !is_bot);
-    // console.log(`next${JSON.stringify(list.length, null, 2)}`);
-    members = [...members, ...list];
-  }
-  return members;
+  return [...getPagedInfo("users.list")].filter(({ is_bot }) => !is_bot);
 };
 
 const getMessageId = (message: Message, channel: string) =>
   `${message.ts}-${channel}`;
 
+const expandReplies = (channel: string, message: Message) => {
+  const opt = { channel, ts: message.ts };
+  return message.thead_ts !== undefined
+    ? [...getPagedInfo("conversations.replies", opt)].reverse()
+    : [message];
+};
+
 const getMessagesInChannel = (channel: string) => {
-  const gen = doPagedApi<{ messages: Message[] }>("conversations.history", {
-    channel,
-  });
-  // eslint-disable-next-line no-restricted-syntax
-  return [...gen].reduce((messages, data) => {
-    const mes = data.messages
-      .filter(
-        ({ type, subtype }) => type === "message" && subtype !== "bot_message"
-      )
-      .filter(isNotJoinMessage)
-      .map((message) => {
-        const id = getMessageId(message, channel);
-        return { ...message, channel, id };
-      });
-    return [...messages, ...mes];
-  }, [] as (Message & { channel: string; id: string })[]);
+  return [...getPagedInfo("conversations.history", { channel })]
+    .map((message) => expandReplies(channel, message))
+    .flat()
+    .filter(
+      ({ type, subtype }) => type === "message" && subtype !== "bot_message"
+    )
+    .filter((msg) => !isJoinMessage(msg))
+    .map((message) => {
+      const id = getMessageId(message, channel);
+      return { ...message, channel, id };
+    });
 };
 
 const getAllMessages = () =>
@@ -202,27 +261,14 @@ const getAllMessages = () =>
 
 const userInfoCache = makeCache<Member>();
 const getUserInfo = (id: string) =>
-  userInfoCache(id, (initId) => {
-    const data = doApi<{ user: Member }>("users.info", { user: initId });
-    if (data.ok === false) throw new Error(`Error: ${data.error}`);
-    return data.user;
-  });
+  userInfoCache(id, (user) => getInfo("users.info", { user }));
 
 const channelInfoCache = makeCache<Conversation>();
 const getChannelInfo = (id: string) =>
-  channelInfoCache(id, (inItId) => {
-    const data = doApi<{ channel: Conversation }>("conversations.info", {
-      channel: inItId,
-    });
-    if (data.ok === false) throw new Error(`Error: ${data.error}`);
-    return data.channel;
-  });
+  channelInfoCache(id, (channel) => getInfo("conversations.info", { channel }));
 
-const getUserByEmail = (email: string) => {
-  const data = doApi<{ user: Member }>("users.lookupByEmail", { email });
-  if (data.ok === false) throw new Error(`Error: ${data.error}`);
-  return data.user;
-};
+const getUserByEmail = (email: string) =>
+  getInfo("users.lookupByEmail", { email });
 
 const proccessMessage = (message: Message & { channel: string }) => {
   const { ts, user: userId, channel: channelId, text } = message;
@@ -244,14 +290,6 @@ const proccessMessage = (message: Message & { channel: string }) => {
   } as MessageWithDetail;
 };
 
-type MessageWithDetail = Message & {
-  timestamp: Date;
-  email: string;
-  channelName: string;
-  id: string;
-  raw: string;
-};
-
 const proccessMember = (user: Member & { updated: string }) => {
   const email = user.profile && user.profile.email;
   const name = user.profile.real_name;
@@ -260,36 +298,17 @@ const proccessMember = (user: Member & { updated: string }) => {
   return { ...user, email, name, updated, raw } as MemberWithDetail;
 };
 
-type MemberWithDetail = Member & {
-  email: string;
-  updated: Date;
-  raw: string;
-};
-
-type PostEvent = {
-  postData: {
-    getDataAsString: () => string;
-  };
-};
-
-type WebhookAction =
-  | { action: "none" }
-  | { action: "message"; data: Message & { channel: string } }
-  | { action: "member"; data: Member & { updated: string } };
-
 const proccessWebhook = (postEvent: PostEvent): WebhookAction => {
   const postData = JSON.parse(postEvent.postData.getDataAsString());
   if (postData.type !== "event_callback") return { action: "none" };
   const { event } = postData;
   const { type } = event;
   if (type === "message") {
-    if (!isNotJoinMessage(event)) return { action: "none" };
-    // const data = proccessMessage(event);
+    if (isJoinMessage(event)) return { action: "none" };
     return { action: "message", data: event as Message & { channel: string } };
   }
   if (type === "team_join") {
     const { user } = event;
-    // const data = proccessMember(user);
     return { action: "member", data: user as Member & { updated: string } };
   }
   return { action: "none" };

@@ -73,13 +73,17 @@ const columnValues = (sheet: Sheet, key: string) => {
   return values.map((row) => row[index]);
 };
 
-const getSheet = (id: string, name: string, header = [] as string[]) => {
+const getSheet = (
+  id: string,
+  name: string,
+  header = [] as readonly string[]
+) => {
   const spreadsheet = SpreadsheetApp.openById(id);
   const sheet = spreadsheet.getSheetByName(name);
   if (sheet) return sheet;
   const newSheet = spreadsheet.insertSheet(name);
   if (header.length > 0) {
-    newSheet.appendRow(header);
+    newSheet.appendRow(header as string[]);
   }
   return newSheet;
 };

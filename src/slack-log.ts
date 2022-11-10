@@ -33,8 +33,8 @@ const messageHeaders = [
   "channelName",
   "text",
   "raw",
-];
-const memberHeaders = ["updated", "id", "email", "name", "raw"];
+] as const;
+const memberHeaders = ["updated", "id", "email", "name", "raw"] as const;
 
 initSlack(SLACK_ACCESS_TOKEN);
 
@@ -47,11 +47,15 @@ const getMemberSheet = () => {
 };
 
 const messageToRow = (message: MessageWithDetail) => {
-  return Object.fromEntries(messageHeaders.map((key) => [key, message[key]]));
+  return Object.fromEntries(
+    messageHeaders.map((key) => [key, message[key]])
+  ) as Pick<MessageWithDetail, typeof messageHeaders[number]>;
 };
 
 const memberToRow = (member: MemberWithDetail) => {
-  return Object.fromEntries(memberHeaders.map((key) => [key, member[key]]));
+  return Object.fromEntries(
+    memberHeaders.map((key) => [key, member[key]])
+  ) as Pick<MemberWithDetail, typeof memberHeaders[number]>;
 };
 
 const updateMessages = () => {
