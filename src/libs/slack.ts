@@ -214,7 +214,7 @@ function* getPagedInfo<E extends PagedApiEntries>(
 
 const isJoinMessage = (msg: { text: string }) => {
   const reg = /^<@[0-9a-zA-Z]+> has joined the channel$/i;
-  return !reg.test(msg.text);
+  return reg.test(msg.text);
 };
 
 const getChannelList = () => {

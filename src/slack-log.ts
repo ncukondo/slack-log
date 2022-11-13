@@ -23,7 +23,7 @@ import {
   insertDictList,
 } from "./libs/sheetUtils";
 
-const SHEET_ID = loadProperty("SHEET_ID");
+let SHEET_ID = "";
 const SLACK_ACCESS_TOKEN = loadProperty("SLACK_ACCESS_TOKEN");
 const TASK_KEY = "SLACK_TASK_KEY";
 const messageHeaders = [
@@ -36,6 +36,15 @@ const messageHeaders = [
 ] as const;
 const memberHeaders = ["updated", "id", "email", "name", "raw"] as const;
 
+type InitInfo = {
+  slackAccessToken: string;
+  sheetID: string;
+};
+
+const init = (info: InitInfo) => {
+  initSlack(info.slackAccessToken);
+  SHEET_ID = info.sheetID;
+};
 initSlack(SLACK_ACCESS_TOKEN);
 
 const getMessageSheet = () => {
@@ -122,4 +131,5 @@ const updateAll = () => {
   updateMessages();
 };
 
-export { doPost, updateAll, processTasks };
+export { doPost, updateAll, processTasks, init };
+export type { InitInfo };

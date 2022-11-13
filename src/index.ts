@@ -15,3 +15,7 @@ export function processTasks() {
 export function logger(text: string) {
   SpreadsheetApp.getActiveSpreadsheet().getSheetByName("log").appendRow([text]);
 }
+
+export function init(info: slackLog.InitInfo) {
+  slackLog.init(info);
+}

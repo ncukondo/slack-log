@@ -1,6 +1,6 @@
 {
   "name": "@ncukondo/slack-log",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "./dist/index.js",
   "author": "Takeshi Kondo",
   "license": "MIT",
@@ -14,7 +14,8 @@
     "clasp-list": "npx clasp list",
     "clasp-clone": "npx clasp clone",
     "build": "yarn lint && rimraf dist && rollup -c && cpx src/appsscript.json dist && cpx js/* dist",
-    "deploy": "yarn build && npx clasp push"
+    "deploy": "yarn build && npx clasp push",
+    "make-clasp-files": "node make-clasp-files.js"
   },
   "dependencies": {},
   "devDependencies": {
