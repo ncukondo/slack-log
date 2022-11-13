@@ -13,6 +13,8 @@
     "clasp-create": "npx clasp create",
     "clasp-list": "npx clasp list",
     "clasp-clone": "npx clasp clone",
+    "preversion": "yarn build",
+    "postversion": "git push --tags && git push origin master",
     "build": "yarn lint && rimraf dist && rollup -c && cpx src/appsscript.json dist && cpx js/* dist",
     "deploy": "yarn build && npx clasp push",
     "make-clasp-files": "node make-clasp-files.js"
