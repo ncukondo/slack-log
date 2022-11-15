@@ -1,4 +1,4 @@
-import { addTask, iterTask, load as loadProperty } from "./libs/propertyUtils";
+import { addTask, iterTask } from "./libs/propertyUtils";
 import {
   getAllMessages,
   getMemberList,
@@ -24,7 +24,6 @@ import {
 } from "./libs/sheetUtils";
 
 let SHEET_ID = "";
-const SLACK_ACCESS_TOKEN = loadProperty("SLACK_ACCESS_TOKEN");
 const TASK_KEY = "SLACK_TASK_KEY";
 const messageHeaders = [
   "timestamp",
@@ -36,16 +35,22 @@ const messageHeaders = [
 ] as const;
 const memberHeaders = ["updated", "id", "email", "name", "raw"] as const;
 
+let loader: null | ((key: string) => string) = null;
+let saver: null | ((key: string, value: string) => void) = null;
+
 type InitInfo = {
   slackAccessToken: string;
   sheetID: string;
+  loader: (key: string) => string;
+  saver: (key: string, value: string) => void;
 };
 
 const init = (info: InitInfo) => {
   initSlack(info.slackAccessToken);
   SHEET_ID = info.sheetID;
+  loader = info.loader;
+  saver = info.saver;
 };
-initSlack(SLACK_ACCESS_TOKEN);
 
 const getMessageSheet = () => {
   return getSheet(SHEET_ID, "slack", messageHeaders);
@@ -97,12 +102,16 @@ type PostEvent = {
 
 const doPost = (e: PostEvent) => {
   const action = proccessWebhook(e);
-  if (action.action !== "none") addTask(TASK_KEY, action);
+  if (saver === null || loader === null)
+    throw new Error("Do init and set loader and saver before call API");
+  if (action.action !== "none") addTask(TASK_KEY, action, loader, saver);
   return getWebhookResponse(e);
 };
 
 const processTasks = () => {
-  const gen = iterTask<WebhookAction>(TASK_KEY);
+  if (saver === null || loader === null)
+    throw new Error("Do init and set loader and saver before call API");
+  const gen = iterTask<WebhookAction>(TASK_KEY, loader, saver);
   // eslint-disable-next-line no-restricted-syntax
   for (const task of gen) {
     switch (task.action) {
