@@ -30,3 +30,5 @@ cat $inputFile | skip_empty | ensure_return | while IFS=\= read key value; do
   echo adding github secret\(repo:$repo\)... key=$key, value=$value
   gh secret set $key -b"${value}" --repos="${repo}"
 done 
+
+gh secret set -f .env --repos=`gh repo view | head -n 1 | sed -r "s/name:\s*(.+)$/\1/"`
