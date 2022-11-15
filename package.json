@@ -1,6 +1,6 @@
 {
   "name": "@ncukondo/slack-log",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "main": "./dist/index.js",
   "author": "Takeshi Kondo",
   "license": "MIT",
