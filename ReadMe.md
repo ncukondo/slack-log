@@ -27,11 +27,12 @@ record all messages to Google Spread sheet
 ### 2. Google apps script
 
 1. Create google apps script project and paste the code below.
-2. Set script perperty "SHEET_ID"(target google spreadsheet ID) and "SLACK_ACCESS_TOKEN"(OAuth Token above).
-3. Run updateAll and permit permissions.
-4. time trigger to "updateAll"(once a day)
-5. Deploy as web app + time trigger "processTasks"(every 5 minutes)
-6. "New Deploy" from Deploy button and note web app url. 
+2. Add library "173cu6Ema05i0FXsBEVxDpy94vEYIURLThApdI_SNpMLjqfTmine-P1f1" as slack_log.
+3. Set script perperty "SHEET_ID"(target google spreadsheet ID) and "SLACK_ACCESS_TOKEN"(OAuth Token above).
+4. Run updateAll and permit permissions.
+5. time trigger to "updateAll"(once a day)
+6. Deploy as web app + time trigger "processTasks"(every 5 minutes)
+7. "New Deploy" from Deploy button and note web app url. 
 
 ```js
 const SHEET_ID = PropertiesService.getScriptProperties().getProperty("SHEET_ID");
