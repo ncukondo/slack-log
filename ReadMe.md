@@ -67,7 +67,8 @@ function processTasks(){
 ### 3. Event subscription
 
 1. Move to [slack api](https://api.slack.com/apps) again.
-2. Set Event subscription
+2. Click "Event Subscriptions" and set "Request URL" as google apps script app url noted above. 
+3. Subscribe events below
     - message.channels
     - team_join
 
