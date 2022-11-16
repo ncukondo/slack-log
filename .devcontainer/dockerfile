@@ -1,24 +1,7 @@
-FROM golang:1.17.8-alpine3.14 as builder
-ARG CLI_VERSION="trunk"
-ENV GH_CLI_VERSION="$CLI_VERSION"
-RUN apk update && apk add make git gcc libc-dev
-RUN git clone --depth 1 --branch $GH_CLI_VERSION https://github.com/cli/cli.git /go/src/gh-cli
-RUN cd /go/src/gh-cli && make
+FROM mcr.microsoft.com/vscode/devcontainers/typescript-node
 
-FROM node:16-alpine
 
-RUN apk update && apk add git openssh
-
-COPY --from=builder /go/src/gh-cli/bin/gh /usr/local/bin/
-
-# sudo using su-exec
-RUN set -ex; \
-    apk add --no-cache su-exec && \
-    chmod a+s /sbin/su-exec &&\
-    echo "#!/bin/sh" >> /usr/bin/sudo &&\
-    echo '/sbin/su-exec root "$@"' >> /usr/bin/sudo &&\
-    chmod a+x /usr/bin/sudo
 
 USER node
 
-ENTRYPOINT ["/bin/sh"]
+ENTRYPOINT ["/bin/bash"]

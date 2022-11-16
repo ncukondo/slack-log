@@ -13,7 +13,9 @@
   "runArgs": [
     "--env-file", ".env"
   ],
-
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
 
   "extensions": [
     "oderwat.indent-rainbow",
@@ -27,7 +29,7 @@
   "settings": {
     "terminal.integrated.profiles.linux": {
       "bash": {
-        "path": "/bin/sh",
+        "path": "/bin/bash",
       },
     },
     "terminal.integrated.defaultProfile.linux": "bash"
